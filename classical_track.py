@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 from ultralytics import YOLO
-
+from byte_tracker import BYTETracker
 # Load YOLO model
 model = YOLO("yolov8n.pt")
 
@@ -25,6 +25,9 @@ fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec for AVI format
 output_resolution = (640, 480)  # Match the resized frame resolution
 out = cv2.VideoWriter(output_file, fourcc, fps, output_resolution)
 
+
+tracker = BYTETracker(fps)
+
 while True:
     # Capture frame-by-frame
     ret, frame = cap.read()
@@ -44,18 +47,27 @@ while True:
     # Filter detections for 'person' class (class index 0 in COCO dataset)
     person_detections = detections.boxes[detections.boxes.cls == 0]
     print("person detection is: ",person_detections)
-
+    
+    detections_bytetrack = []
     # Get bounding box annotations (x1, y1, x2, y2)
     for box in person_detections:
+        class_id='0'
         print("the box  value is : ",box)
         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
         print("the box xyxy value is : ",box.xyxy[0])
         confidence = box.conf.cpu().numpy()
+        bytetrack_bbox = [x1, y1, x2, y2,round(confidence, 2), int(class_id)]
+
+        detections_bytetrack.append(bytetrack_bbox)
 
         # Draw bounding boxes on the frame
         cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
         label = f"Person {confidence}"
         cv2.putText(frame, label, (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    detections_bytetrack_arry=np.array(detections_bytetrack)
+    detection_update = tracker.update(detections_bytetrack_arry, fps)
+    print(detection_update)
+
     # Write the annotated frame to the output video
     out.write(frame)
 
