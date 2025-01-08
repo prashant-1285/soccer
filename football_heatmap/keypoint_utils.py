@@ -8,15 +8,15 @@ def keypoint_prediction(model,frame,det_conf,keypt_conf):
 
     # Directly access predictions
     predictions = results_dict['predictions']
-    print("The predictions are: ",predictions)
-    print("the length of the predictions are: ",len(predictions))
+    #print("The predictions are: ",predictions)
+    #print("the length of the predictions are: ",len(predictions))
     keypoint_detections=[]
     
     if not predictions:  # If predictions are empty
         keypoint_detections.append({})  # Append an empty dictionary
     else:
         for prediction in predictions:
-            print("Processing prediction with class name:", prediction.class_name)
+            #print("Processing prediction with class name:", prediction.class_name)
         
             # Iterate through the keypoints
             for keypoint in prediction.keypoints:
@@ -25,7 +25,7 @@ def keypoint_prediction(model,frame,det_conf,keypt_conf):
                 confidence = keypoint.confidence
                
                 if confidence>keypt_conf:
-                    print("The keeypoint confidence is : ",confidence)
+                    #print("The keeypoint confidence is : ",confidence)
                     # Append keypoint details in the desired format
                     keypoint_detections.append({
                         "keypoints": (x, y),
@@ -44,7 +44,7 @@ def draw_keypoints(all_keypoints,all_frames):
         
         for keypoint_data in keypoints:
             # Extract keypoint details
-            print("keypoints adta is: ",keypoint_data)
+            #print("keypoints adta is: ",keypoint_data)
             x, y = keypoint_data['keypoints']
             x=int(x)
             y=int(y)
