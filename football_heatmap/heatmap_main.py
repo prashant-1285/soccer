@@ -21,10 +21,9 @@ import keypoint_utils
 importlib.reload(centroid_track)
 importlib.reload(detection_utils)
 importlib.reload(keypoint_utils)
+import argparse
 
 
-
-video_path="./videos/dbf_18.mp4"
 
 model_ball = get_model(
     model_id="football-ball-detection-rejhg/4", 
@@ -36,6 +35,62 @@ model_keypoints = get_model(
     model_id="football-field-detection-f07vi/14", 
     api_key="fpgo7lotAA2MTZARBCtt"
 )
+
+class Video_info:
+    def __init__(self, video_path):
+        self.cap = cv2.VideoCapture(video_path)
+
+        # Check if the video was successfully opened
+        if not self.cap.isOpened():
+            print("Error: Unable to open video file.")
+        else:
+            # Get video properties for output writer
+            self.frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            self.frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+            self.video_path=video_path
+
+            
+    def ballpos_interpolation(self,ball_pos,all_frames):
+        print("Inside interpolation")
+        yolo=False
+        df_positions = pd.DataFrame(ball_pos, columns=["x", "y"])
+        df_positions = df_positions.interpolate(method='linear').bfill()  # Interpolate missing values
+        position_array=list(df_positions.values)
+
+        # Define the codec and create VideoWriter object
+        video_name = os.path.splitext(os.path.basename(self.video_path))[0]
+        output_path = f'./videos/{video_name}_track.avi'
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')  # You can use other codecs like 'MP4V' for MP4 files
+        out = cv2.VideoWriter(output_path, fourcc, self.fps , ( self.frame_width, self.frame_height))
+
+        for current_positions,frame in zip(position_array,all_frames):
+        
+            
+
+            # Get the current interpolated position for this frame
+            x, y = current_positions
+            
+            if not np.isnan(x) and not np.isnan(y):
+                
+                x, y = int(x), int(y)
+                # Draw interpolated circle
+                cv2.circle(frame, (x, y), radius=10, color=(255, 0, 255), thickness=2)
+
+            #Draw raw detections from YOLO
+            if yolo:
+
+                x1=int(x1)
+                x2=int(x2)
+                y1=int(y1)
+                y2=int(y2)
+                color = (0, 255, 0)
+                thickness = 2
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+                x,y,w,h=xyxy2xywh(x1,y1,x2,y2)
+
+            out.write(frame)
+
 def perform_ball_detection(video_path,normal_detection=True):
 
     # Open the video file
@@ -146,3 +201,83 @@ def perform_ball_detection(video_path,normal_detection=True):
     cap.release()
 
     return ball_positions,all_keypoints,all_frames
+
+def process_onlyvideo(video_path):
+
+      # Open the video file
+    cap = cv2.VideoCapture(video_path)
+
+    # Check if the video was successfully opened
+    if not cap.isOpened():
+        print("Error: Unable to open video file.")
+    
+    all_frames=[]
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        all_frames.append(frame)
+    return all_frames
+
+
+
+def save_datas(ball_positions, all_keypoints, video_path):
+    # Extract the video name without extension
+    video_name = os.path.splitext(os.path.basename(video_path))[0]
+    
+    # Save the ball positions and keypoints arrays with video name
+    ballpos_array = np.array(ball_positions)
+    np.save(f"ballposition_array_{video_name}.npy", ballpos_array)
+    
+    all_keypoints_array = np.array(all_keypoints)
+    np.save(f"keypoints_array_{video_name}.npy", all_keypoints_array)
+
+
+def check_saved_array(video_path):
+    exist=False
+    video_name = os.path.splitext(os.path.basename(video_path))[0]
+    if os.path.exists(f"ballposition_array_{video_name}.npy") and os.path.exists(f"keypoints_array_{video_name}.npy"):
+        exist=True
+  
+        ball_pos_array=list(np.load(f"ballposition_array_{video_name}.npy",allow_pickle=True))
+        keypoint_array=list(np.load(f"keypoints_array_{video_name}.npy",allow_pickle=True))
+    else:
+        exist=False
+        ball_pos_array=None
+        keypoint_array=None
+    
+    return exist,ball_pos_array,keypoint_array
+
+
+
+
+def main(video_path,normal_detection):
+    file_exist,ball_pos_array_saved,keypoint_array_saved=check_saved_array(video_path)
+
+    if file_exist==True:
+        print("Ball position and keypoint arrays exists so loading from saved array...")
+        ball_pos_lst=ball_pos_array_saved
+        keypoints_lst=keypoint_array_saved
+        frames_lst=process_onlyvideo(video_path)
+    else:
+        print("Running ball detection...")
+        ball_pos_lst,keypoints_lst,frames_lst=perform_ball_detection(video_path,normal_detection)
+        save_datas(ball_pos_lst,keypoints_lst,video_path)
+
+        # Initialize Video_info class and extract infos
+    
+    video_info = Video_info(video_path)
+    video_info.ballpos_interpolation(ball_pos_lst,frames_lst)
+
+    
+    
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Process a video with optional detection.')
+    parser.add_argument('--video_path', metavar='path', required=True,
+                        help='The path to the video file.')
+    parser.add_argument('--normal_detection', action='store_true',
+                        help='Enable normal detection. Defaults to False if not specified.')
+    
+    args = parser.parse_args()
+    main(video_path=args.video_path, normal_detection=args.normal_detection)
