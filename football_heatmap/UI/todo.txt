@@ -1,0 +1,18 @@
+1. output video is not being played. fix that. Done
+2. display the output video. Done
+3. remove the automatic display of heatmap. save it also in the output folder. Done
+4. add a button to display the heatmap. Done
+
+
+(to be done by friday)
+progress bar in html
+Video size bigger 
+show the detected ball
+
+5. make it a little beautiful: design button by yourself using figma, 
+6. add progress bar in the inference
+7. record the video and put it in upwork/youtube. Also put it on your personal website as an image of Giphy
+
+
+ (to be done by satday)
+8. Start working on 3d positioning of the ball when it is in the air if it is feasible to do.

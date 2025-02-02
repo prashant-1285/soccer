@@ -27,10 +27,10 @@ import soccer_config
 importlib.reload(soccer_config)
 from soccer_config import SoccerPitchConfiguration
 from keypoint_homography import Transform
-
+import os
 
 class Video_info:
-    def __init__(self, video_path):
+    def __init__(self, video_path,output_video_path):
         self.cap = cv2.VideoCapture(video_path)
 
         # Check if the video was successfully opened
@@ -42,6 +42,7 @@ class Video_info:
             self.frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
             self.video_path=video_path
+            self.output_video_path=output_video_path
 
             
     def ballpos_interpolation(self,ball_pos,all_frames):
@@ -53,8 +54,8 @@ class Video_info:
 
         # Define the codec and create VideoWriter object
         video_name = os.path.splitext(os.path.basename(self.video_path))[0]
-        output_path = f'./videos/{video_name}_track.avi'
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')  # You can use other codecs like 'MP4V' for MP4 files
+        output_path = f'./videos/{video_name}_track.mp4'
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # You can use other codecs like 'MP4V' for MP4 files
         out = cv2.VideoWriter(output_path, fourcc, self.fps , ( self.frame_width, self.frame_height))
 
         for current_positions,frame in zip(position_array,all_frames):
@@ -85,6 +86,40 @@ class Video_info:
             out.write(frame)
         return position_array
     
+
+    def generate_detection_video(self,frames_lst,kpts,position_arr):
+        output_path= self.video_path
+        # Extract file extension
+        ext = os.path.splitext(output_path)[-1].lower()  
+
+        # Set codec based on format
+        if ext == ".mp4":
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
+        elif ext == ".avi":
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec for AVI
+        else:
+            raise ValueError(f"Unsupported video format: {ext}")
+        out = cv2.VideoWriter(output_path, fourcc, self.fps , ( self.frame_width, self.frame_height))
+       
+
+        for frame,kpt,pos in zip(frames_lst,kpts,position_arr):
+            
+            x, y = pos
+            if not np.isnan(x) and not np.isnan(y):
+                    
+                    x, y = int(x), int(y)
+                    # Draw interpolated circle
+                    cv2.circle(frame, (x, y), radius=10, color=(0, 0, 255), thickness=4)
+            for kp in kpt:
+                
+                kpoints=kp['keypoints']
+                cv2.circle(frame,(int(kpoints[0]),int(kpoints[1])), radius=6, color=(0, 0, 0), thickness=2)
+        
+            out.write(frame)
+        out.release()
+        
+
+
     def generate_2dmapping(self,pitch,scaled_coord,all_frames,all_keypoints,position_array,img_pitch2d):
         """AI is creating summary for generate_2dmapping
 
@@ -103,12 +138,18 @@ class Video_info:
         frame_size = (1200, 700)
 
         video_name = os.path.splitext(os.path.basename(self.video_path))[0]
-        output_file = f"videos/{video_name}_heatmap.avi"  # Output video file nam
+        print("Here0--------")
+        if not os.path.exists(self.output_video_path):
+            os.mkdir(self.output_video_path)
+        output_file = os.path.join(self.output_video_path,f"{video_name}_heatmap.avi")
+        print("output file is: ",output_file)
         frame_rate =  self.fps
         # Initialize video writer
         fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec for the video
         video_writer = cv2.VideoWriter(output_file, fourcc, frame_rate, frame_size)
         # Filter vertices based on the keypoints' classes
+
+       
         for idx in range(len(all_frames)):
             filtered_vertices = []
             filtered_keypoints = []
@@ -151,11 +192,12 @@ class Video_info:
                 # Draw the circle on the image
                 temp_img=img_pitch2d.copy()
                 cv2.circle(temp_img, center, radius, color, thickness)
+                video_writer.write(temp_img)
             else:
                 print("In else:")
             #plt.imshow(img)
             # Write the modified frame to the video
-            video_writer.write(temp_img)
+            
             #break
         video_writer.release()
 
@@ -218,12 +260,16 @@ class Video_info:
         # Display the result
         
         overlay_rgb=cv2.cvtColor(overlay,cv2.COLOR_BGR2RGB)
-        plt.figure()
-        plt.imshow(overlay_rgb)
-        plt.axis('off')
-        plt.show()
+        #plt.figure()
+        #plt.imshow(overlay_rgb)
+        #plt.axis('off')
+        #plt.show()
         # Optionally, save the result
-        cv2.imwrite("heatmap_overlay_18.png", overlay)
+        video_name = os.path.splitext(os.path.basename(self.video_path))[0]
+
+        output_file = os.path.join(self.output_video_path,f"{video_name}_heatmap.png")
+        print("The output heatmap files is>>>>>>>>>>>>>>>>>>>>>>>>>>>",output_file)
+        cv2.imwrite(output_file, overlay)
 
 
     def combine_video(self):
@@ -231,8 +277,8 @@ class Video_info:
         video_name=os.path.splitext(os.path.basename(self.video_path))[0]
         # Paths to the original video and the heatmap video
         original_video_path =self.video_path
-        heatmap_video_path = f"videos/{video_name}_heatmap.avi"
-        output_combined_path = f'./videos/combined_output_{video_name}.avi'
+        heatmap_video_path = os.path.join(self.output_video_path,f"{video_name}_heatmap.avi")
+        output_combined_path = os.path.join(self.output_video_path,f"combined_output_{video_name}.avi")
 
         # Open both videos
         original_cap = cv2.VideoCapture(original_video_path)
@@ -264,7 +310,6 @@ class Video_info:
 
             if not ret1 or not ret2:
                 break  # Stop if we reach the end of either video
-
             # Resize heatmap frame to match the original frame dimensions (if needed)
             heatmap_frame = cv2.resize(heatmap_frame, (frame_width, frame_height))
 
@@ -458,6 +503,7 @@ def generate_2d_field(pitch):
    
     # Create a blank image (white background)
     img = np.ones((img_height, img_width, 3), dtype=np.uint8) * 255
+    img[:] = (0, 255, 0)
 
     # Define scaling factors based on physical dimensions
     x_scale = img_width / pitch.length
@@ -476,6 +522,8 @@ def generate_2d_field(pitch):
         #print("The idx is: and its x y scaled is: ",idx,x,y)
         # Draw the vertex as a small circle
         cv2.circle(img, (x_scaled, y_scaled), 8, (0, 0, 0), -1)  # Black dot for the vertex
+        if idx==8 or idx==28:
+            cv2.circle(img, (x_scaled, y_scaled), 15, (255, 255, 255), -1)
         # Annotate the point with label (if you need this step)
         cv2.putText(img, pitch.labels[idx], (x_scaled + 10, y_scaled + 10), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
@@ -494,7 +542,7 @@ def generate_2d_field(pitch):
         x2_scaled, y2_scaled = scale_coordinates(x2, y2)
         
         # Draw the line between the two points (green color)
-        cv2.line(img, (x1_scaled, y1_scaled), (x2_scaled, y2_scaled), (0, 255, 0), 2)  # Green color for edges
+        cv2.line(img, (x1_scaled, y1_scaled), (x2_scaled, y2_scaled), (255, 255, 255), 2)  # White color for edges
 
     # Plot the center circle
     center_x, center_y = pitch.length / 2, pitch.width / 2  # The center of the field
@@ -502,7 +550,7 @@ def generate_2d_field(pitch):
     centre_circle_radius_scaled = pitch.centre_circle_radius * x_scale  # Scale the radius to match the image
 
     # Draw the center circle
-    cv2.circle(img, (center_scaled_x, center_scaled_y), int(centre_circle_radius_scaled), (0, 255, 0), 2)  # Green circle
+    cv2.circle(img, (center_scaled_x, center_scaled_y), int(centre_circle_radius_scaled), (255, 255, 255), 2)  # Green circle
 
     # Save the figure as an image file
     cv2.imwrite("soccer_pitch_with_circle_scaled_cv2.png", img)
@@ -512,7 +560,7 @@ def generate_2d_field(pitch):
 
 
 
-def main(video_path,normal_detection):
+def main(video_path,normal_detection,output_video):
     file_exist,ball_pos_array_saved,keypoint_array_saved=check_saved_array(video_path)
 
     # Perform ball detection/ load the array if already detected
@@ -535,7 +583,7 @@ def main(video_path,normal_detection):
 
     # Initialize Video_info class and extract infos
     # Perform ball interpolation and generate video 
-    video_info = Video_info(video_path)
+    video_info = Video_info(video_path,output_video)
     interpolated_ballpos=video_info.ballpos_interpolation(ball_pos_lst,frames_lst)
 
     # generate a 2D Football field and scale the coordinate based on image size
@@ -545,6 +593,8 @@ def main(video_path,normal_detection):
     pitch_2d,scaled_coordinates=generate_2d_field(pitch)
     print("Generating 2d mapping and writing video...")
     video_info.generate_2dmapping(pitch,scaled_coordinates,frames_lst,keypoints_lst,interpolated_ballpos,pitch_2d)
+
+    video_info.generate_detection_video(frames_lst,keypoints_lst,interpolated_ballpos)
 
     print("Generating 2d heatmap...")
     video_info.generate_2Dheatmap(pitch,scaled_coordinates,frames_lst,keypoints_lst,interpolated_ballpos,pitch_2d)
@@ -562,6 +612,8 @@ if __name__ == '__main__':
                         help='The path to the video file.')
     parser.add_argument('--normal_detection', action='store_true',
                         help='Enable normal detection. Defaults to False if not specified.')
+    parser.add_argument('--output_video', metavar='path', required=True,
+                        help='The path to the output combined video file.')
     
     args = parser.parse_args()
-    main(video_path=args.video_path, normal_detection=args.normal_detection)
+    main(video_path=args.video_path, normal_detection=args.normal_detection,output_video=args.output_video)

@@ -1,0 +1,322 @@
+<style>
+    /* Google Font */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+    /* General Styling */
+   /* Stylish Page Background */
+body {
+    margin: 0;
+    padding: 0;
+    background: url('./static/background.jpg') no-repeat center center fixed; 
+    background-size: cover;
+    color: white; /* Ensures text remains readable */
+}
+
+/* Semi-transparent overlay for better contrast */
+body::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); /* Dark overlay with 50% transparency */
+    z-index: -1;
+}
+
+/* Center Content */
+.container {
+    max-width: 2000px;
+    margin: auto;
+    text-align: center;
+    padding: 20px;
+}
+    h1, h2 {
+        font-weight: 600;
+        color: #fff;
+    }
+
+    /* Upload Form */
+    #upload-form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+    }
+
+    input[type="file"] {
+        padding: 10px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.5);
+        color: black;
+    }
+
+/* Button Styling */
+button {
+    background-color: #3498db; /* Blue color */
+    color: white;
+    padding: 12px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+    /* Upload & Run Buttons */
+    #upload-form button {
+        background: #1abc9c;
+    }
+
+    #run-inference {
+        background: #3498db;
+    }
+
+    #display-heatmap {
+        background: #e74c3c;
+    }
+
+    button:hover {
+    background-color: #2980b9; /* Darker blue on hover */
+}
+
+    /* Loader Circle */
+    .loader {
+        border: 8px solid rgba(255, 255, 255, 0.3);
+        border-top: 8px solid #3498db;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Video & Image Styling */
+    video, img {
+        max-width: 100%;
+        border-radius: 10px;
+        margin-top: 10px;
+        display: none;
+    }
+
+    /* Progress Container */
+    #progress-container {
+        margin: 20px;
+        display: none;
+    }
+
+    /* Progress Bar */
+    progress {
+        width: 80%;
+        height: 10px;
+        border-radius: 5px;
+    }
+    /* Response Messages */
+/* Response Messages */
+p {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    text-align: center;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
+    margin-top: 10px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.6); /* Darker background for contrast */
+    border-radius: 10px;
+    display: inline-block;
+}
+/* Ensure Video is Large and Responsive */
+#videoPlayer {
+    width: 90%; /* Adjusts size based on screen width */
+    max-width: 2400px; /* Limits max size */
+    max-height: 2400px;
+    height: auto; /* Maintains aspect ratio */
+    display: none; /* Initially hidden */
+    border-radius: 12px; /* Smooth rounded corners */
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.6); /* Adds shadow effect */
+    margin-top: 20px;
+}
+
+/* Heatmap Container */
+#heatmap-container {
+    display: flex;
+    justify-content: center; /* Centers horizontally */
+    align-items: center; /* Centers vertically */
+    flex-direction: column; /* Stacks elements vertically */
+    margin-top: 20px;
+}
+
+/* Heatmap Image */
+#heatmap_image {
+    display: none; /* Initially hidden */
+    max-width: 40%; /* Makes it responsive */
+    height: auto; /* Maintains aspect ratio */
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.6); /* Adds shadow */
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Upload a Football Video</h1>
+    <form id="upload-form">
+        <input type="file" id="video-file" name="video" accept="video/*">
+        <button type="submit">Upload</button>
+    </form>
+    <p id="upload-response"></p>
+
+    <!-- Progress Loader -->
+    <div id="progress-container">
+        <div class="loader"></div>
+    </div>
+
+    <p id="inference-response"></p>
+    <button id="run-inference" disabled>Run Inference</button>
+
+    <h2 id="output-title" style="display: none;">Output Video</h2>
+    <div style="text-align: center;">
+        <video id="videoPlayer" width="1280" height="720" controls style="display: none;"></video>
+    </div>
+
+    <button id="display-heatmap" disabled>Display Heatmap</button>
+    <p id="heatmap-response"></p>
+    <div id="heatmap-container">
+        <h2 id="output-image-title" style="display: none;">Football track Heatmap</h2>
+        <img id="heatmap_image">
+    </div>
+    <script>
+        
+        let uploadedVideoName = null;
+        let inferenceImage=null;
+        
+
+
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const videoInput = document.getElementById('video-file');
+            const file = videoInput.files[0];
+            console.log("The video file name is: ",file)
+
+            if (!file) {
+                alert('Please select a video file.');
+                return;
+            }
+            document.getElementById('upload-response').textContent="Uploading file..."
+            document.getElementById('progress-container').style.display = "block";
+            const formData = new FormData();
+            formData.append('video', file);
+            console.log("Before Try")
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
+                console.log("The response is: ",result)
+                console.log("The result message is: ",result.message)
+                console.log("The result videoname is: ",result.video_name)
+                document.getElementById('progress-container').style.display = "none"; // Hide progress circle
+                document.getElementById('upload-response').textContent = result.message || result.error;
+                console.log("Video name result is: ",result.video_name)
+                if (result.video_name) {
+                    uploadedVideoName = result.video_name;
+                    document.getElementById('run-inference').disabled = false;
+                }
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                document.getElementById('upload-response').textContent = 'An error occurred.';
+            }
+        });
+
+        document.getElementById('run-inference').addEventListener('click', async () => {
+            if (!uploadedVideoName) {
+                alert('No uploaded video to process.');
+                return;
+            }
+            document.getElementById('progress-container').style.display = "block";
+            document.getElementById('inference-response').textContent ="Running  inference..."
+            try {
+                const response = await fetch('/run_inference', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_name: uploadedVideoName }),
+                });
+               
+                const result = await response.json();
+                document.getElementById('progress-container').style.display = "none";
+                document.getElementById('inference-response').textContent = result.message || result.error;
+
+                // Handle video download link
+  
+                if (result.output_video) {
+                   
+                    inferenceImage=uploadedVideoName  // Activate the heatmap 
+                    document.getElementById('display-heatmap').disabled = false //Activate the heatmap display button
+
+
+                    console.log("Output video URL:", `/download/${result.output_video}`);
+                    
+                    // Set the correct video source
+                    const videoElement = document.getElementById('videoPlayer');
+                    const titleElement = document.getElementById('output-title');
+                    videoElement.src = `/download/${result.output_video}`;
+                    videoElement.style.display = "block";
+                    titleElement.style.display = "block";
+                    videoElement.load();
+                    videoElement.play();
+                }
+            } catch (error) {
+                console.error('Error running inference:', error);
+                document.getElementById('inference-response').textContent = 'An error occurred.';
+            }
+        
+        });
+        
+        document.getElementById('display-heatmap').addEventListener('click', async () => {
+            if (!inferenceImage) {
+                alert('No image saved yet.');
+                return;
+            }
+            try {
+                const response = await fetch('/check_heatmap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_name: inferenceImage }),});
+                const result = await response.json();
+                document.getElementById('heatmap-response').textContent = result.message || result.error;
+            if(result.output_image){
+                const response = await fetch(`/download_heatmap/${result.output_image}`);
+        
+                // Check if the response is successful
+                if (!response.ok) {
+                    throw new Error('Failed to fetch the heatmap image.');
+                }
+                // Get the image URL (assuming Flask sends it as an image response)
+                const imageUrl = URL.createObjectURL(await response.blob());
+
+
+                const imgElement = document.getElementById('heatmap_image');
+                const imgTitleElement = document.getElementById('output-image-title');
+                imgElement.src=imageUrl;
+                imgElement.style.display = "block";
+                imgTitleElement.style.display = "block";
+
+            }} catch (error) {
+                console.error('Error running inference:', error);
+           
+            }
+            
+        
+        
+        });
+        
+    </script>
+</body>
+</html>

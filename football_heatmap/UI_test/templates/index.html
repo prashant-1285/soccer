@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Async Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Async Demo with Flask and JavaScript</h1>
+    <p>Click the button to start a long-running task. The page will not freeze!</p>
+    <button id="start-task">Start Task</button>
+    <div id="status"></div>
+
+    <script>
+
+        document.getElementById("start-task").addEventListener('click',async()=>{
+            const statusElement=document.getElementById('status');
+            statusElement.textContent="Updating task";
+
+            try{ const response=await fetch('/long_task');
+
+                if (!response.ok){
+                    throw new Error("erroe networ");
+                }
+
+                const result=await response.text()
+
+                statusElement.textContent=result;
+
+            }
+            catch(error){
+                statusElement.textContent=" an error occured: "+error.mesage;
+            }
+
+        });
+
+
+
+
+
+
+
+
+
+
+
+    </script>
+</body>
+</html>
