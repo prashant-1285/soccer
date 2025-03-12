@@ -522,7 +522,7 @@ def generate_2d_field(pitch):
         #print("The idx is: and its x y scaled is: ",idx,x,y)
         # Draw the vertex as a small circle
         cv2.circle(img, (x_scaled, y_scaled), 8, (0, 0, 0), -1)  # Black dot for the vertex
-        if idx==8 or idx==28:
+        if idx==8 or idx==21:
             cv2.circle(img, (x_scaled, y_scaled), 15, (255, 255, 255), -1)
         # Annotate the point with label (if you need this step)
         cv2.putText(img, pitch.labels[idx], (x_scaled + 10, y_scaled + 10), 
