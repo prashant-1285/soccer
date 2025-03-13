@@ -190,6 +190,7 @@ p {
         <h2 id="output-image-title" style="display: none;">Football track Heatmap</h2>
         <img id="heatmap_image">
     </div>
+    <button id="3Dvizpage">Go to Second Page</button>
     <script>
         
         let uploadedVideoName = null;
@@ -316,23 +317,10 @@ p {
         
         
         });
-                // Add a button to capture the frame
-                document.getElementById('video-file').addEventListener('change', (e) => {
-    const videoFile = e.target.files[0];
-    if (videoFile) {
-        const videoElement = document.getElementById('videoPlayer');
-        const titleElement = document.getElementById('output-title');
-        
-        // Create a local object URL for preview
-        videoElement.src = URL.createObjectURL(videoFile);
-        
-        // Display and play the video
-        videoElement.style.display = "block";
-        titleElement.style.display = "block";
-        videoElement.load();
-        videoElement.play();
-    }
-});
+        document.getElementById('3Dvizpage').addEventListener('click', () => {
+            window.open('/second_page', '_blank');  // Redirect to the second page
+        });
+
 
       
         
